@@ -23,28 +23,37 @@ fun createHttpClient(): HttpClient = HttpClient {
     defaultRequest { headers.append("User-Agent", "FHDVideobox/${com.fhdvideobox.app.AppConfig.VERSION}") }
 }
 
+/** Источник каталога: свой сервер или бесплатная библиотека. */
+interface ContentSource {
+    val label: String
+    override suspend fun catalog(section: Section, page: Int, sort: SortOrder): CatalogPage
+    override suspend fun details(id: String): ItemDetails
+    override suspend fun videos(id: String): List<VideoSource>
+    override suspend fun search(query: String): CatalogPage
+}
+
 /**
  * Клиент API сервера региона. Контракт описан в docs/API.md.
  * baseUrl должен заканчиваться на "/".
  */
-class VideoboxApi(private val http: HttpClient, baseUrl: String) {
+class VideoboxApi(private val http: HttpClient, baseUrl: String, override val label: String) : ContentSource {
 
     private val base = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
 
-    suspend fun catalog(section: Section, page: Int, sort: SortOrder): CatalogPage =
+    override suspend fun catalog(section: Section, page: Int, sort: SortOrder): CatalogPage =
         http.get("${base}api/v1/catalog") {
             parameter("section", section.apiKey)
             parameter("page", page)
             parameter("sort", sort.apiKey)
         }.body()
 
-    suspend fun details(id: String): ItemDetails =
+    override suspend fun details(id: String): ItemDetails =
         http.get("${base}api/v1/items/${id.encodeURLPathPart()}").body()
 
-    suspend fun videos(id: String): List<VideoSource> =
+    override suspend fun videos(id: String): List<VideoSource> =
         http.get("${base}api/v1/items/${id.encodeURLPathPart()}/videos").body()
 
-    suspend fun search(query: String): CatalogPage =
+    override suspend fun search(query: String): CatalogPage =
         http.get("${base}api/v1/search") { parameter("q", query) }.body()
 
     /** Проверка доступности сервера. */

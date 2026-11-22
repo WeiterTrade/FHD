@@ -12,6 +12,11 @@ interface KeyValueStore {
     fun put(key: String, value: String?)
 }
 
+enum class SourceType(val title: String, val hint: String) {
+    ARCHIVE("Бесплатный каталог", "Internet Archive — фильмы в общественном достоянии"),
+    SERVER("Свой сервер", "Сервер региона (API FHD Videobox)"),
+}
+
 enum class AppTheme(val title: String) {
     DARK_GREEN("Тёмная (зелёная)"),
     DARK_BLUE("Тёмная (синяя FHD)"),
@@ -46,6 +51,10 @@ class SettingsStore(private val kv: KeyValueStore) {
     private val _customServer = MutableStateFlow(kv.get("custom_server").orEmpty())
     val customServer: StateFlow<String> = _customServer.asStateFlow()
     fun setCustomServer(url: String) { kv.put("custom_server", url.trim()); _customServer.value = url.trim() }
+
+    private val _source = enumFlow("source", SourceType.ARCHIVE)
+    val source: StateFlow<SourceType> = _source.asStateFlow()
+    fun setSource(t: SourceType) { kv.put("source", t.name); _source.value = t }
 
     fun serverUrlFor(r: Region): String = _customServer.value.ifBlank { r.defaultUrl }
 

@@ -188,6 +188,8 @@ private fun ServerSettings(app: AppController) {
         checking = false
     }
 
+    val source by app.settings.source.collectAsState()
+    ChoiceGroup("Источник каталога", SourceType.entries, source, { "${it.title} — ${it.hint}" }, app::changeSource)
     ChoiceGroup("Регион", Region.entries, region ?: Region.KZ, { it.title }) { app.connect(it) }
     SettingRow(Icons.Default.MyLocation, "Определить по IP", detected?.let { "Ваша страна: $it" } ?: "Проверить, где вы сейчас") { checking = true }
     SettingRow(Icons.Default.RestartAlt, "Пройти выбор региона заново", "Как при первом запуске") { app.resetRegion() }
@@ -236,7 +238,7 @@ fun AboutScreen(app: AppController, onMenu: (() -> Unit)?) {
             Spacer(Modifier.height(12.dp))
             Text("Версия ${AppConfig.VERSION} • ${app.platform.name}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             val region by app.settings.region.collectAsState()
-            Text("Сервер: ${region?.title ?: "—"}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Регион: ${region?.title ?: "—"} • ${app.api?.label ?: ""}", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

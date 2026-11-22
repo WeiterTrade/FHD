@@ -28,7 +28,6 @@ import com.fhdvideobox.app.ui.components.PosterCard
 @Composable
 fun CatalogScreen(app: AppController, section: Section, onMenu: (() -> Unit)?) {
     val feed = app.feed(section)
-    val region by app.settings.region.collectAsState()
     val grid by app.settings.grid.collectAsState()
     val sort by app.settings.sort.collectAsState()
     var sortMenu by remember { mutableStateOf(false) }
@@ -38,7 +37,7 @@ fun CatalogScreen(app: AppController, section: Section, onMenu: (() -> Unit)?) {
     Column(Modifier.fillMaxSize()) {
         AppTopBar(
             title = section.title,
-            subtitle = region?.let { "Сервер: ${it.title}" },
+            subtitle = app.api?.label,
             onMenu = onMenu,
         ) {
             IconButton(onClick = { app.open(Screen.Search) }) { Icon(Icons.Default.Search, "Поиск") }

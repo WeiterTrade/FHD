@@ -25,7 +25,7 @@ sealed interface Screen {
 /** Состояние одной ленты каталога (кешируется, чтобы при «Назад» не терялась прокрутка). */
 class CatalogFeed(
     private val scope: CoroutineScope,
-    private val apiProvider: () -> VideoboxApi?,
+    private val apiProvider: () -> ContentSource?,
     val section: Section,
     private val sortProvider: () -> SortOrder,
 ) {
@@ -82,13 +82,21 @@ class AppController(
     val geo = GeoIpDetector(http)
 
     // ---- Сервер ----
-    var api: VideoboxApi? by mutableStateOf(null)
+    var api: ContentSource? by mutableStateOf(null)
         private set
 
     fun connect(region: Region) {
         settings.setRegion(region)
-        api = VideoboxApi(http, settings.serverUrlFor(region))
+        api = when (settings.source.value) {
+            SourceType.ARCHIVE -> ArchiveSource(http)
+            SourceType.SERVER -> VideoboxApi(http, settings.serverUrlFor(region), "Сервер: ${region.title}")
+        }
         feeds.clear()
+    }
+
+    fun changeSource(t: SourceType) {
+        settings.setSource(t)
+        settings.region.value?.let { connect(it) }
     }
 
     /** Сбросить регион — при следующем показе снова сработает определение по IP. */
