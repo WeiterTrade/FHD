@@ -1,0 +1,77 @@
+# FHD Videobox
+
+Онлайн-кинотеатр на **Kotlin Multiplatform + Compose Multiplatform**: один код для всех платформ.
+
+| Платформа | Что собирается | Видео |
+|---|---|---|
+| Android 5.0+ (смартфоны **и** Android TV) | один APK | ExoPlayer (Media3) |
+| Windows 7 SP1 / 8 / 10 / 11 (x64) | `.msi`, `setup.exe`, портативный `.zip` | встроенный libVLC 3.0 |
+| Linux x64 | `.deb`, `.rpm`, `.tar.gz` | системный VLC |
+
+Java на ПК ставить не нужно, она уже внутри установщика.
+
+## Как работает вход
+
+1. При первом запуске приложение определяет страну по IP.
+2. Казахстан → «Вы находитесь в Казахстане?», Россия → «Вы находитесь в России?».
+3. **Да** → подключение к серверу этой страны. **Нет**, или страну не удалось определить → ручной выбор.
+4. Выбор запоминается. Сменить его можно в *Настройки → Сервер и регион* (там же «пройти выбор заново»
+   и ручной адрес сервера для зеркал и тестов).
+
+## Сборка через GitHub Actions
+
+1. Создайте репозиторий и загрузите туда содержимое этой папки.
+2. **Settings → Secrets and variables → Actions**, добавьте:
+   - `SERVER_KZ`: адрес сервера для Казахстана, например `https://kz.api.вашдомен.kz/`
+   - `SERVER_RU`: адрес сервера для России
+   - *(желательно)* подпись Android: `ANDROID_KEYSTORE_BASE64` (`base64 -w0 release.jks`),
+     `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+     Без них APK подписывается debug-ключом: ставится, но обновлять потом придётся с переустановкой.
+3. Каждый push собирает всё во вкладке **Actions → Artifacts**.
+4. Релиз: `git tag v1.0.0 && git push --tags`. Файлы появятся в **Releases**.
+
+Создать ключ подписи (один раз, хранить в надёжном месте):
+```
+keytool -genkeypair -v -keystore release.jks -alias fhd -keyalg RSA -keysize 2048 -validity 10000
+```
+
+## Локальный запуск
+
+```bash
+python3 server/mock_server.py          # тестовый сервер: http://<IP>:8080/kz/ и /ru/
+./gradlew :composeApp:run              # приложение для ПК
+./gradlew :composeApp:assembleDebug    # APK (нужен Android SDK / Android Studio)
+```
+Чтобы подключиться к тестовому серверу: *Настройки → Сервер и регион → Адрес сервера* →
+`http://<IP компьютера>:8080/kz/` → «Применить». В демо используются открытые фильмы Blender Foundation (CC-BY).
+
+## Управление
+
+- **Пульт ТВ**: стрелки ходят по меню и постерам, ОК открывает, «Назад» возвращает. В плеере ←/→ перематывают на 10 с, ОК ставит на паузу.
+- **ПК**: мышь, клавиатура, `Esc` = «Назад», `F11` = полный экран. В плеере: пробел, ←/→, ↑/↓ (громкость), `F`, `Esc`.
+
+## Структура
+
+```
+composeApp/src/
+  commonMain/   общий код: экраны, темы, API, регионы, настройки
+    data/Region.kt         страны и их сервера (добавить страну — здесь)
+    data/GeoIpDetector.kt  определение страны по IP
+    data/Api.kt            клиент API (контракт: docs/API.md)
+    ui/screens/RegionGate.kt  экран «Вы находитесь в …?»
+  androidMain/  Activity, плеер ExoPlayer, иконки, баннер Android TV
+  desktopMain/  окно Windows/Linux, плеер libVLC, хранение настроек
+server/mock_server.py   тестовый сервер
+.github/workflows/build.yml  сборка всех платформ
+```
+
+## Замечания по Windows 7
+
+- Нужна **64-битная Windows 7 SP1** с обновлениями (как минимум KB2533623 и KB2999226/Universal CRT).
+- Встроенная Java 17 официально не сертифицирована на Win7, но работает. Если на конкретном ПК
+  не запустится, пришлите текст ошибки.
+- На Windows 7/8 интерфейс автоматически рисуется через OpenGL (DirectX 12 там нет).
+
+## Linux
+
+Для видео нужен VLC: `sudo apt install vlc` (Debian/Ubuntu/Mint) или `sudo dnf install vlc` (Fedora).
