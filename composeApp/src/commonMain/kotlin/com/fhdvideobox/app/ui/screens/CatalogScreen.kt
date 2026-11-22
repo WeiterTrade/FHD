@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,7 +43,7 @@ fun CatalogScreen(app: AppController, section: Section, onMenu: (() -> Unit)?) {
         ) {
             IconButton(onClick = { app.open(Screen.Search) }) { Icon(Icons.Default.Search, "Поиск") }
             Box {
-                IconButton(onClick = { sortMenu = true }) { Icon(Icons.Default.Sort, "Сортировка") }
+                IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, "Сортировка") }
                 DropdownMenu(sortMenu, { sortMenu = false }) {
                     SortOrder.entries.forEach { s ->
                         DropdownMenuItem(

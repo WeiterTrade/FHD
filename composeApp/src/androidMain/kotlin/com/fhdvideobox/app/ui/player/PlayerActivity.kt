@@ -9,7 +9,9 @@ import androidx.activity.ComponentActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -21,6 +23,7 @@ import android.widget.Toast
  * Полноэкранный плеер (ExoPlayer). Работает и с сенсором, и с пультом:
  * ОК — пауза/панель, ←/→ — перемотка, «Назад» — выход.
  */
+@OptIn(UnstableApi::class)
 class PlayerActivity : ComponentActivity() {
 
     private var player: ExoPlayer? = null

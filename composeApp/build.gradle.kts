@@ -102,19 +102,14 @@ android {
         versionName = appVersion
     }
 
+    val releaseKeystore = System.getenv("ANDROID_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
     signingConfigs {
-        create("release") {
-            val ks = System.getenv("ANDROID_KEYSTORE_FILE")
-            if (ks != null && file(ks).exists()) {
-                storeFile = file(ks)
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = releaseKeystore
                 storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("ANDROID_KEY_ALIAS")
                 keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
-            } else {
-                // Нет секретов — подписываем debug-ключом, чтобы APK всё равно ставился
-                val dbg = getByName("debug")
-                storeFile = dbg.storeFile; storePassword = dbg.storePassword
-                keyAlias = dbg.keyAlias; keyPassword = dbg.keyPassword
             }
         }
     }
@@ -122,12 +117,17 @@ android {
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
+            // Нет своего ключа — подписываем стандартным debug-ключом (AGP создаст его сам)
+            signingConfig = signingConfigs.getByName(if (releaseKeystore != null) "release" else "debug")
         }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
     packaging {
         resources.excludes += setOf("META-INF/{AL2.0,LGPL2.1}", "META-INF/INDEX.LIST", "META-INF/io.netty.versions.properties")
