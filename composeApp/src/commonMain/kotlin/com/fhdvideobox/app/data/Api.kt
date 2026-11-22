@@ -26,10 +26,10 @@ fun createHttpClient(): HttpClient = HttpClient {
 /** Источник каталога: свой сервер или бесплатная библиотека. */
 interface ContentSource {
     val label: String
-    override suspend fun catalog(section: Section, page: Int, sort: SortOrder): CatalogPage
-    override suspend fun details(id: String): ItemDetails
-    override suspend fun videos(id: String): List<VideoSource>
-    override suspend fun search(query: String): CatalogPage
+    suspend fun catalog(section: Section, page: Int, sort: SortOrder): CatalogPage
+    suspend fun details(id: String): ItemDetails
+    suspend fun videos(id: String): List<VideoSource>
+    suspend fun search(query: String): CatalogPage
 }
 
 /**
