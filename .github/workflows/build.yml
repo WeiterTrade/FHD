@@ -1,0 +1,139 @@
+name: Build FHD Videobox
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]          # тег v1.2.3 → сборка + GitHub Release
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # Адреса серверов берутся из секретов репозитория (Settings → Secrets → Actions).
+  # Если секретов нет — используются значения из gradle.properties.
+  SERVER_KZ: ${{ secrets.SERVER_KZ }}
+  SERVER_RU: ${{ secrets.SERVER_RU }}
+  VLC_VERSION: 3.0.21
+
+jobs:
+  # ------------------------------------------------------------------ Android / Android TV
+  android:
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Версия
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "v=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT; else echo "v=1.0.0" >> $GITHUB_OUTPUT; fi
+
+      - name: Ключ подписи (если задан секрет ANDROID_KEYSTORE_BASE64)
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        if: env.HAS_KEYSTORE == 'true'
+        run: |
+          echo "$KS" | base64 -d > $RUNNER_TEMP/release.jks
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> $GITHUB_ENV
+
+      - name: Сборка APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew :composeApp:assembleRelease -PappVersion=${{ steps.ver.outputs.v }} -PappVersionCode=${{ github.run_number }} --stacktrace
+          mkdir -p out
+          cp composeApp/build/outputs/apk/release/*.apk out/FHDVideobox-${{ steps.ver.outputs.v }}-android.apk
+
+      - uses: actions/upload-artifact@v4
+        with: { name: android, path: out/* }
+
+  # ------------------------------------------------------------------ Windows 7 / 8 / 10 / 11 (x64)
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Версия
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "v=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT; else echo "v=1.0.0" >> $GITHUB_OUTPUT; fi
+
+      - name: Встраиваем libVLC (видеодвижок, поддерживает Windows 7)
+        shell: pwsh
+        run: |
+          $zip = "$env:RUNNER_TEMP\vlc.zip"
+          Invoke-WebRequest "https://download.videolan.org/pub/videolan/vlc/$env:VLC_VERSION/win64/vlc-$env:VLC_VERSION-win64.zip" -OutFile $zip
+          Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\vlc"
+          $src = "$env:RUNNER_TEMP\vlc\vlc-$env:VLC_VERSION"
+          $dst = "composeApp\resources\windows\vlc"
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Copy-Item "$src\libvlc.dll","$src\libvlccore.dll" $dst
+          Copy-Item "$src\plugins" "$dst\plugins" -Recurse
+          # лишнее для плеера — выкидываем, чтобы уменьшить размер
+          Remove-Item "$dst\plugins\gui","$dst\plugins\lua","$dst\plugins\visualization","$dst\plugins\control","$dst\plugins\services_discovery" -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Сборка MSI / EXE / портативной версии
+        shell: bash
+        run: |
+          ./gradlew :composeApp:packageMsi :composeApp:packageExe :composeApp:createDistributable -PappVersion=${{ steps.ver.outputs.v }} --stacktrace
+          mkdir -p out
+          cp composeApp/build/compose/binaries/main/msi/*.msi out/FHDVideobox-${{ steps.ver.outputs.v }}-windows-x64.msi
+          cp composeApp/build/compose/binaries/main/exe/*.exe out/FHDVideobox-${{ steps.ver.outputs.v }}-windows-x64-setup.exe
+          cd composeApp/build/compose/binaries/main/app && 7z a -tzip ../../../../../../out/FHDVideobox-${{ steps.ver.outputs.v }}-windows-x64-portable.zip *
+
+      - uses: actions/upload-artifact@v4
+        with: { name: windows, path: out/* }
+
+  # ------------------------------------------------------------------ Linux (x64)
+  linux:
+    runs-on: ubuntu-22.04     # старее glibc → запускается на большем числе дистрибутивов
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: sudo apt-get update && sudo apt-get install -y rpm fakeroot
+
+      - name: Версия
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "v=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT; else echo "v=1.0.0" >> $GITHUB_OUTPUT; fi
+
+      - name: Сборка DEB / RPM / tar.gz
+        run: |
+          chmod +x gradlew
+          ./gradlew :composeApp:packageDeb :composeApp:packageRpm :composeApp:createDistributable -PappVersion=${{ steps.ver.outputs.v }} --stacktrace
+          mkdir -p out
+          cp composeApp/build/compose/binaries/main/deb/*.deb out/FHDVideobox-${{ steps.ver.outputs.v }}-linux-amd64.deb
+          cp composeApp/build/compose/binaries/main/rpm/*.rpm out/FHDVideobox-${{ steps.ver.outputs.v }}-linux-x86_64.rpm
+          tar -czf out/FHDVideobox-${{ steps.ver.outputs.v }}-linux-x64.tar.gz -C composeApp/build/compose/binaries/main/app .
+
+      - uses: actions/upload-artifact@v4
+        with: { name: linux, path: out/* }
+
+  # ------------------------------------------------------------------ Релиз по тегу
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [ android, windows, linux ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
