@@ -102,14 +102,21 @@ android {
         versionName = appVersion
     }
 
-    val releaseKeystore = System.getenv("ANDROID_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
+    // Постоянный ключ подписи (как в Adult-soft): новые версии ставятся поверх старых.
+    // Если заданы секреты ANDROID_KEYSTORE_* — используется ключ из секретов.
+    val envKeystore = System.getenv("ANDROID_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
     signingConfigs {
-        if (releaseKeystore != null) {
-            create("release") {
-                storeFile = releaseKeystore
+        create("release") {
+            if (envKeystore != null) {
+                storeFile = envKeystore
                 storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("ANDROID_KEY_ALIAS")
                 keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            } else {
+                storeFile = file("keystore/release.jks")
+                storePassword = "5X7HQLlEZRSJZ9rf"
+                keyAlias = "fhd"
+                keyPassword = "5X7HQLlEZRSJZ9rf"
             }
         }
     }
@@ -117,8 +124,10 @@ android {
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
-            // Нет своего ключа — подписываем стандартным debug-ключом (AGP создаст его сам)
-            signingConfig = signingConfigs.getByName(if (releaseKeystore != null) "release" else "debug")
+            signingConfig = signingConfigs.getByName("release")
+        }
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
