@@ -64,9 +64,11 @@ class CatalogFeed(
 }
 
 fun Throwable.toUserMessage(): String = when {
-    this::class.simpleName?.contains("Timeout") == true -> "Сервер не отвечает. Проверьте интернет."
+    this::class.simpleName?.contains("Timeout") == true || this is kotlinx.coroutines.TimeoutCancellationException -> "Сервер не отвечает. Проверьте интернет."
     this::class.simpleName?.contains("UnknownHost") == true -> "Нет подключения к интернету."
-    this::class.simpleName?.contains("ResponseException") == true -> "Ошибка сервера. Попробуйте позже."
+    this is io.ktor.client.plugins.ClientRequestException ->
+        "Сервер ответил ошибкой ${response.status.value}: адрес не поддерживает API FHD Videobox (см. docs/API.md)."
+    this is io.ktor.client.plugins.ResponseException -> "Ошибка сервера (${response.status.value}). Попробуйте позже."
     else -> "Не удалось загрузить данные (${this::class.simpleName})."
 }
 

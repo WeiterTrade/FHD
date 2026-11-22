@@ -3,6 +3,8 @@ package com.fhdvideobox.app.ui.screens
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Public
@@ -45,33 +47,57 @@ fun RegionGate(app: AppController) {
         }
     }
 
-    Box(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(24.dp),
+    BoxWithConstraints(
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center,
     ) {
-        Column(
-            Modifier.widthIn(max = 520.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Image(app.platform.logo(), null, Modifier.height(150.dp))
-            Spacer(Modifier.height(16.dp))
-            Wordmark(big = true)
-            Spacer(Modifier.height(40.dp))
-
+        // Телевизор (≈540 dp по высоте) и альбомный телефон: компактная раскладка
+        val compact = maxHeight < 640.dp
+        val wide = maxWidth > maxHeight && compact
+        val logo: @Composable () -> Unit = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Image(app.platform.logo(), null, Modifier.height(if (compact) 110.dp else 150.dp))
+                Spacer(Modifier.height(if (compact) 8.dp else 16.dp))
+                Wordmark(big = !compact)
+            }
+        }
+        val body: @Composable () -> Unit = {
             when (val s = state) {
-                GateState.Detecting -> {
+                GateState.Detecting -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator()
                     Spacer(Modifier.height(16.dp))
                     Text("Определяем ваш регион…", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-
                 is GateState.Confirm -> ConfirmCard(
                     question = s.region.question,
                     onYes = { app.connect(s.region) },
                     onNo = { state = GateState.Choose("Выберите страну, в которой вы находитесь.") },
                 )
-
                 is GateState.Choose -> ChooseCard(s.reason) { app.connect(it) }
+            }
+        }
+
+        if (wide) {
+            // ТВ: логотип слева, вопрос справа — всё помещается на один экран
+            Row(
+                Modifier.fillMaxSize().padding(24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { logo() }
+                Box(Modifier.weight(1f).verticalScroll(rememberScrollState()), contentAlignment = Alignment.Center) {
+                    Box(Modifier.widthIn(max = 460.dp)) { body() }
+                }
+            }
+        } else {
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                logo()
+                Spacer(Modifier.height(if (compact) 16.dp else 40.dp))
+                Box(Modifier.widthIn(max = 520.dp)) { body() }
             }
         }
     }
@@ -82,7 +108,7 @@ private fun ConfirmCard(question: String, onYes: () -> Unit, onNo: () -> Unit) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Default.Public, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
             Spacer(Modifier.height(12.dp))
             Text(question, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
@@ -105,7 +131,7 @@ private fun ChooseCard(reason: String, onPick: (Region) -> Unit) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(reason, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(20.dp))
             Region.entries.forEachIndexed { i, r ->
